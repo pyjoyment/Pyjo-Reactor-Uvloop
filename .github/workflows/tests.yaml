@@ -19,8 +19,9 @@ permissions:
 jobs:
   # The Pyjoyment to test against: the release of uv.lock, with which the
   # reactor is installed, and its tag, whose suite the job prove runs on the
-  # reactor; or the ref of a dispatch, whose checkout is laid over the release
-  # with `--with-editable`, so that the checkout is what is tested.
+  # reactor, or its commit when uv.lock has it from Git until a release; or
+  # the ref of a dispatch, whose checkout is laid over the release with
+  # `--with-editable`, so that the checkout is what is tested.
   pyjoyment:
     name: pyjoyment
 
@@ -45,7 +46,7 @@ jobs:
             echo "ref=$REF" >> "$GITHUB_OUTPUT"
             echo "editable=../Pyjoyment" >> "$GITHUB_OUTPUT"
           else
-            python3 -c 'import tomllib; print("ref=" + next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "pyjoyment"))' >> "$GITHUB_OUTPUT"
+            python3 -c 'import tomllib; p = next(p for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "pyjoyment"); print("ref=" + (p["source"]["git"].rpartition("#")[2] if "git" in p["source"] else p["version"]))' >> "$GITHUB_OUTPUT"
           fi
 
   # The whole suite of Pyjoyment on this reactor, as a reactor has to pass all
