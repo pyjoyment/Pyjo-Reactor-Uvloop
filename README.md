@@ -111,6 +111,8 @@ import Pyjo.UserAgent  # noqa: E402
 
 import asyncio  # noqa: E402
 
+import uvloop  # noqa: E402
+
 
 # A coroutine on the loop of uvloop, with the streams of asyncio and the user agent of Pyjoyment, both requesting the
 # server of Pyjoyment in the same loop
@@ -125,7 +127,7 @@ async def main(port):
         tx = await ua.get_p(f'http://127.0.0.1:{port}/')
         print(f'Pyjo.UserAgent: {tx.res.code} {tx.res.text}')
 
-    return type(asyncio.get_running_loop()).__module__
+    return 'uvloop' if isinstance(asyncio.get_running_loop(), uvloop.Loop) else 'asyncio'
 
 
 # The server, on a port that the system picks, which closes its listen sockets at the end of the block
@@ -148,7 +150,7 @@ loop: uvloop
 
 `examples/loopback_uvloop.py` is a server of Pyjoyment and its user agent on
 the loop of uvloop, a blocking request, which runs the event loop until the
-response, and the class of the reactor and the module of its loop, which
+response, and the class of the reactor and whether its loop is one of uvloop, which
 Build checks with the wheel:
 
 ```python
@@ -163,6 +165,8 @@ import Pyjo.IOLoop  # noqa: E402
 import Pyjo.Server.Daemon  # noqa: E402
 import Pyjo.UserAgent  # noqa: E402
 
+import uvloop  # noqa: E402
+
 
 # The server, on a port that the system picks, and the user agent, in the same event loop, which close their sockets at
 # the end of the block
@@ -173,7 +177,7 @@ with (
     # A blocking request, which runs the event loop of the server on uvloop until the response
     tx = ua.get(f'http://127.0.0.1:{daemon.start().ports()[0]}/')
     reactor = Pyjo.IOLoop.singleton.reactor
-    print(type(reactor).__name__, type(reactor.loop).__module__)
+    print(type(reactor).__name__, 'uvloop' if isinstance(reactor.loop, uvloop.Loop) else 'asyncio')
     print(tx.result.code, tx.result.text)
 ```
 

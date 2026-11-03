@@ -13,8 +13,8 @@ linters it shares.
 ## How it works
 
 - It is a subclass of `Pyjo.Reactor.Asyncio`, as the loop of uvloop is a loop
-  of asyncio, which overrides only `_own_loop`, the loop that the reactor makes
-  for itself: `uvloop.new_event_loop()` in the place of
+  of asyncio, which overrides `_own_loop`, the loop that the reactor makes for
+  itself: a subclass of `uvloop.Loop` in the place of
   `asyncio.new_event_loop()`. The rest of what the reactor does with a loop of
   its own, which `_own_loop` repeats, the set of the loops that are closed at
   the exit of the interpreter, the finalizer that closes the loop with the
@@ -28,9 +28,26 @@ linters it shares.
   `Pyjo.Reactor.Asyncio` takes already, as `t/servers/ASGI.py` of Pyjoyment
   tests, and a given loop or a loop that is running is taken by this reactor
   too, of asyncio or of uvloop.
+- uvloop sets the wakeup fd of the signals, `signal.set_wakeup_fd`, to a
+  socket of its own in `run_forever`, in the main thread, and sets the old one
+  back when the loop stops, where the loop of asyncio sets one only for
+  `add_signal_handler`. A worker of `Pyjo.Server.Prefork` sets a socket pair
+  as the wakeup fd and watches it with the reactor, as its handlers of TERM and
+  QUIT only note the signal, so on the plain loop of uvloop the handler runs,
+  but the worker is never woken up to handle it and does not stop. The loop of
+  the reactor, `_Loop`, relays: while it runs, a socket pair of its own is the
+  wakeup fd, whose bytes it writes to both the socket of uvloop, for
+  `add_signal_handler`, and the wakeup fd of the program, with a null byte at
+  the start for a signal that came before the relay. A signal handler of
+  Python still runs when uvloop calls `PyErr_CheckSignals`.
 - The child of a fork, as a worker of `Pyjo.Server.Prefork`, moves to a new
   loop of its own, which `_fork` of `Pyjo.Reactor.Asyncio` makes with
-  `_own_loop`, so of uvloop, as libuv of the parent is not the child's.
+  `_own_loop`, so of uvloop, as libuv of the parent is not the child's. `_fork`
+  of Pyjoyment 0.2.0 leaves the loop of the parent in `_OWN`, so the child
+  closes it at the exit of the interpreter: the loop of asyncio only reports
+  the closed kqueue on macOS, while libuv aborts the child before its
+  finalizers, as the one of `Pyjo.Server.Hot` that removes `hot.pid`. `_fork`
+  of the reactor removes it, until Pyjoyment does.
 - `PYJO_ASYNCIO_SLOW_CALLBACK` sets the `slow_callback_duration` of a loop of
   its own, as for `Pyjo.Reactor.Asyncio`, which the loop of uvloop has too.
 - uvloop has wheels for CPython on Linux and macOS, not for PyPy or Windows, so
@@ -131,8 +148,8 @@ mise exec -- uv run --group docs --with-editable ../Pyjoyment sphinx-build -W --
 `t/mojo/reactor_poll.t` of Mojolicious, in the subtests of 9.53, as
 `t/Pyjo/Reactor_Poll.py` has them, with subtests of its own for the loop of
 uvloop: a loop of its own, a given loop, a loop that is running, of asyncio
-and of uvloop, a coroutine, `PYJO_ASYNCIO_SLOW_CALLBACK` and the child of a
-fork.
+and of uvloop, a coroutine, `PYJO_ASYNCIO_SLOW_CALLBACK`, the child of a fork
+and its exit, and the wakeup fd of the signals.
 `t/docs/Reactor_Uvloop.py` runs the synopsis of the module, in both forms, as
 `t/docs` of Pyjoyment does.
 

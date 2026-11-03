@@ -11,6 +11,8 @@ import Pyjo.UserAgent  # noqa: E402
 
 import asyncio  # noqa: E402
 
+import uvloop  # noqa: E402
+
 
 # A coroutine on the loop of uvloop, with the streams of asyncio and the user agent of Pyjoyment, both requesting the
 # server of Pyjoyment in the same loop
@@ -25,7 +27,7 @@ async def main(port):
         tx = await ua.get_p(f'http://127.0.0.1:{port}/')
         print(f'Pyjo.UserAgent: {tx.res.code} {tx.res.text}')
 
-    return type(asyncio.get_running_loop()).__module__
+    return 'uvloop' if isinstance(asyncio.get_running_loop(), uvloop.Loop) else 'asyncio'
 
 
 # The server, on a port that the system picks, which closes its listen sockets at the end of the block

@@ -42,7 +42,7 @@ requests the server of Pyjoyment in the same loop with the streams of
 
 ``examples/loopback_uvloop.py`` is a server of Pyjoyment and its user agent on
 the loop of uvloop, a blocking request, which runs the event loop until the
-response, and the class of the reactor and the module of its loop:
+response, and the class of the reactor and whether its loop is one of uvloop:
 
     .. include:: ../examples/loopback_uvloop.py
        :code: python

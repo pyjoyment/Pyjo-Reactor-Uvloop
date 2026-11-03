@@ -15,6 +15,8 @@ from Pyjo.Test import *  # noqa: E402
 import asyncio  # noqa: E402
 import signal  # noqa: E402
 import socket  # noqa: E402
+import subprocess  # noqa: E402
+import sys  # noqa: E402
 import time  # noqa: E402
 
 import uvloop  # noqa: E402
@@ -451,9 +453,11 @@ with subtest('Loop of its own of uvloop'):
         ok(isinstance(loop, asyncio.AbstractEventLoop), 'loop of asyncio')
         is_ok(reactor.loop, loop, 'same loop')
         fired = []
-        reactor.timer(0, lambda reactor: (fired.append(type(asyncio.get_running_loop())), reactor.stop()))
+        reactor.timer(
+            0, lambda reactor: (fired.append(isinstance(asyncio.get_running_loop(), uvloop.Loop)), reactor.stop())
+        )
         reactor.start()
-        is_deeply_ok(fired, [uvloop.Loop], 'timer in the loop of uvloop')
+        is_deeply_ok(fired, [True], 'timer in the loop of uvloop')
     ok(loop.is_closed(), 'loop closed at the end of the block')
     with Pyjo.Reactor.Asyncio.new() as reactor:
         ok(not isinstance(reactor.loop, uvloop.Loop), 'the reactor of asyncio keeps the loop of asyncio')
@@ -480,7 +484,7 @@ with subtest('Coroutine on the loop of uvloop'):
 
     async def coroutine():
         await asyncio.sleep(0.01)
-        return type(asyncio.get_running_loop())
+        return isinstance(asyncio.get_running_loop(), uvloop.Loop)
 
     with Pyjo.Reactor.Uvloop.new() as reactor:
         result = []
@@ -490,7 +494,7 @@ with subtest('Coroutine on the loop of uvloop'):
             lambda err: (result.append(err), reactor.stop()),
         )
         reactor.start()
-        is_deeply_ok(result, [uvloop.Loop], 'coroutine of asyncio on the loop of uvloop')
+        is_deeply_ok(result, [True], 'coroutine of asyncio on the loop of uvloop')
 
 with subtest('Threshold of a slow callback'):
     os.environ['PYJO_ASYNCIO_SLOW_CALLBACK'] = '5'
@@ -528,5 +532,61 @@ with subtest('Fork'):
         is_ok(child_status, '0', 'new loop of uvloop in the child, with a timer')
         is_ok(os.waitstatus_to_exitcode(status), 0, 'child exited')
         is_ok(reactor.loop, parent, 'loop of the parent kept')
+
+# Not in Mojolicious: a child of a fork that ends at the exit of the interpreter, as the manager of Pyjo.Server.Hot, which
+# removes its process id file then; the loop of the parent is not closed in the child, where libuv aborts on it
+with subtest('Exit of the child of a fork'):
+    if not hasattr(os, 'fork'):
+        plan(skip_all='os.fork is required')
+    code = """
+import os, sys
+import Pyjo.Reactor.Uvloop
+reactor = Pyjo.Reactor.Uvloop.new()
+reactor.timer(0, lambda reactor: reactor.stop())
+reactor.start()
+pid = os.fork()
+if not pid:
+    reactor.timer(0, lambda reactor: reactor.stop())
+    reactor.start()
+    sys.exit(0)
+print(os.waitstatus_to_exitcode(os.waitpid(pid, 0)[1]))
+"""
+    result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=60)
+    is_ok(result.stdout, '0\n', 'child exited at the end of the interpreter')
+    is_ok(result.stderr, '', 'nothing on the standard error')
+
+# Not in Mojolicious: the wakeup fd of the signals that the program sets, as a worker of Pyjo.Server.Prefork does, whose
+# handler only notes the signal, which a watcher of the socket of the wakeup fd handles
+with subtest('Wakeup fd of the signals'):
+    if not hasattr(signal, 'SIGUSR1'):
+        plan(skip_all='SIGUSR1 is required')
+    noted = []
+    woken = []
+    handler = signal.signal(signal.SIGUSR1, lambda signum, frame: noted.append(signum))
+    waker, wakee = socket.socketpair()
+    waker.setblocking(False)
+    wakee.setblocking(False)
+    wakeup = signal.set_wakeup_fd(waker.fileno())
+    try:
+        with Pyjo.Reactor.Uvloop.new() as reactor:
+
+            def wake(reactor, writable):
+                wakee.recv(4096)
+                if noted:
+                    woken.extend(noted)
+                    reactor.stop()
+
+            reactor.io(wakee, wake).watch(wakee, True, False)
+            reactor.timer(0.1, lambda reactor: os.kill(os.getpid(), signal.SIGUSR1))
+            reactor.timer(5, lambda reactor: reactor.stop())
+            reactor.start()
+            reactor.remove(wakee)
+    finally:
+        signal.set_wakeup_fd(wakeup)
+        signal.signal(signal.SIGUSR1, handler)
+        waker.close()
+        wakee.close()
+    is_deeply_ok(woken, [signal.SIGUSR1], 'socket of the wakeup fd written to on the signal')
+    is_ok(signal.set_wakeup_fd(wakeup), wakeup, 'wakeup fd set back')
 
 done_testing()
