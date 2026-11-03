@@ -49,6 +49,15 @@ linters it shares.
   finalizers, as the one of `Pyjo.Server.Hot` that removes `hot.pid`. The
   reactor needs the `_fork` of pyjoyment/Pyjoyment#497, which keeps it out of
   `_OWN`, so a release after 0.2.0.
+- In the debug mode of asyncio, which CI runs with `PYTHONDEVMODE=1`, a handle
+  of uvloop takes the stack where it is made, with `sys._getframe` of Cython.
+  The finalizer of an async generator that the end of another one frees, as
+  `head` of `Pyjo.Iterator` does, runs while CPython clears that frame, and
+  the hook of uvloop, `_asyncgen_finalizer_hook`, of Cython too, makes a
+  handle there, so `sys._getframe` reads the frame that is cleared and crashes
+  the interpreter, from CPython 3.12 to 3.15. `_Loop` overrides the hook in
+  Python, which the stack starts from then, as the hook of asyncio does, until
+  MagicStack/uvloop#756, which fixes it in uvloop, is released.
 - `PYJO_ASYNCIO_SLOW_CALLBACK` sets the `slow_callback_duration` of a loop of
   its own, as for `Pyjo.Reactor.Asyncio`, which the loop of uvloop has too.
 - uvloop has wheels for CPython on Linux and macOS, not for PyPy or Windows, so
@@ -155,7 +164,8 @@ mise exec -- uv run --group docs --with-editable ../Pyjoyment sphinx-build -W --
 `t/Pyjo/Reactor_Poll.py` has them, with subtests of its own for the loop of
 uvloop: a loop of its own, a given loop, a loop that is running, of asyncio
 and of uvloop, a coroutine, `PYJO_ASYNCIO_SLOW_CALLBACK`, the child of a fork
-and its exit, and the wakeup fd of the signals.
+and its exit, the wakeup fd of the signals and the finalizer of an async
+generator in the debug mode.
 `t/docs/Reactor_Uvloop.py` runs the synopsis of the module, in both forms, as
 `t/docs` of Pyjoyment does.
 
