@@ -589,4 +589,38 @@ with subtest('Wakeup fd of the signals'):
     is_deeply_ok(woken, [signal.SIGUSR1], 'socket of the wakeup fd written to on the signal')
     is_ok(signal.set_wakeup_fd(wakeup), wakeup, 'wakeup fd set back')
 
+# Not in Mojolicious: an async generator that the end of another one frees, whose finalizer uvloop calls while CPython
+# clears the frame, in the debug mode of asyncio, which crashed the interpreter, so in a process of its own
+with subtest('Finalizer of an async generator in the debug mode'):
+    code = """
+import Pyjo.Reactor.Uvloop
+
+
+async def numbers():
+    for i in range(10):
+        yield i
+
+
+async def head(n):
+    it = numbers()
+    while n > 0:
+        n -= 1
+        yield await anext(it)
+
+
+async def main():
+    return [[e async for e in head(2)] for _ in range(100)][-1]
+
+
+reactor = Pyjo.Reactor.Uvloop.new()
+reactor.loop.set_debug(True)
+result = []
+reactor.run_coroutine(main(), lambda value: (result.append(value), reactor.stop()), lambda err: (result.append(err), reactor.stop()))
+reactor.start()
+print(result)
+"""
+    result = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True, timeout=60)
+    is_ok(result.returncode, 0, 'no crash')
+    is_ok(result.stdout, '[[0, 1]]\n', 'right result')
+
 done_testing()

@@ -95,6 +95,8 @@ import socket
 import threading
 import weakref
 
+from typing import Any
+
 import uvloop
 
 
@@ -166,6 +168,12 @@ class _Loop(uvloop.Loop):  # pyright: ignore[reportUntypedBaseClass]
             handle.cancel()
             if not self.is_closed():
                 self.remove_reader(reader)
+
+    # The finalizer of an async generator, which a dealloc calls while CPython clears a frame, in Python, as the one of
+    # asyncio: the handle of uvloop takes the stack in the debug mode with sys._getframe, which crashes on the frame
+    # that is cleared when the hook of Cython is the top of the stack (MagicStack/uvloop#756)
+    def _asyncgen_finalizer_hook(self, agen: Any) -> None:
+        super()._asyncgen_finalizer_hook(agen)  # pyright: ignore[reportAttributeAccessIssue, reportUnknownMemberType]
 
     def close(self) -> None:
         super().close()
