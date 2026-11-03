@@ -46,8 +46,9 @@ linters it shares.
   of Pyjoyment 0.2.0 leaves the loop of the parent in `_OWN`, so the child
   closes it at the exit of the interpreter: the loop of asyncio only reports
   the closed kqueue on macOS, while libuv aborts the child before its
-  finalizers, as the one of `Pyjo.Server.Hot` that removes `hot.pid`. `_fork`
-  of the reactor removes it, until Pyjoyment does.
+  finalizers, as the one of `Pyjo.Server.Hot` that removes `hot.pid`. The
+  reactor needs the `_fork` of pyjoyment/Pyjoyment#497, which keeps it out of
+  `_OWN`, so a release after 0.2.0.
 - `PYJO_ASYNCIO_SLOW_CALLBACK` sets the `slow_callback_duration` of a loop of
   its own, as for `Pyjo.Reactor.Asyncio`, which the loop of uvloop has too.
 - uvloop has wheels for CPython on Linux and macOS, not for PyPy or Windows, so
@@ -61,8 +62,12 @@ is not released yet would be its Git repository in `[tool.uv.sources]` of
 `pyproject.toml`, until its release, and not a path to the checkout next to
 this one: uv applies the sources of a dependency of Git, so whoever installs
 the reactor from Git would get a subdirectory of this repository that does not
-exist. The tests lay the checkout next to this one over it with
-`--with-editable`, so that they test what is there:
+exist. That is the Pyjoyment of `main` now, for the `_fork` of
+pyjoyment/Pyjoyment#497: before a release of the reactor, the source goes and
+the lowest version of `dependencies` becomes the release of Pyjoyment that has
+it, as a wheel carries no sources of uv and would install Pyjoyment 0.2.0.
+The tests lay the checkout next to this one over it with `--with-editable`,
+so that they test what is there:
 
 ```sh
 mise exec -- uv sync
@@ -88,9 +93,10 @@ PYJO_REACTOR=Pyjo.Reactor.Uvloop mise exec -- uv run --project ../Pyjo-Reactor-U
 The workflow Tests runs the tests of the reactor against the release of
 `uv.lock`, without `--with-editable`, so that a pull request tests what an
 installation gets, and the suite of Pyjoyment of the tag of that release on
-the reactor. A dispatch with `pyjoyment-ref` lays a checkout of the ref over
-it, as in development, so that what the next release of Pyjoyment breaks is
-known before the release. It ends with the job `Tests`, the one check of it
+the reactor, or of its commit when `uv.lock` has it from Git. A dispatch with
+`pyjoyment-ref` lays a checkout of the ref over it, as in development, so
+that what the next release of Pyjoyment breaks is known before the release.
+It ends with the job `Tests`, the one check of it
 that the ruleset of `main` requires, as in Pyjoyment: it fails when a job of
 the matrix failed or was cancelled, so a new version of Python needs no change
 of the ruleset.

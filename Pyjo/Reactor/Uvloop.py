@@ -117,14 +117,6 @@ class Pyjo_Reactor_Uvloop(Pyjo.Reactor.Asyncio.object):
         Pyjo.Reactor.Asyncio._register()  # pyright: ignore[reportPrivateUsage]
         return loop
 
-    # The loop of the parent stays in the loops of their own of Pyjo.Reactor.Asyncio in the child of a fork, which closes
-    # it at the exit, where libuv aborts on the kqueue of the parent
-    def _fork(self) -> None:
-        old = self._loop
-        super()._fork()  # pyright: ignore[reportUnknownMemberType]
-        if old is not None and self._loop is not old:
-            Pyjo.Reactor.Asyncio._OWN.discard(old)  # pyright: ignore[reportPrivateUsage]
-
 
 # uvloop sets the wakeup fd of the signals to a socket of its own while it runs, in the main thread, so that the one that
 # the program has set, as a worker of Pyjo.Server.Prefork does, whose handlers only note a signal, is not written to and
