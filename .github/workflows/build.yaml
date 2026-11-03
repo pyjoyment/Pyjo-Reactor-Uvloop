@@ -1,0 +1,68 @@
+name: Build
+
+# Checks that uv.lock matches pyproject.toml, builds the sdist and the wheel,
+# checks that the wheel has the module of the reactor and nothing of the
+# namespace of Pyjoyment, and installs it with Pyjoyment and imports it and
+# runs examples/loopback_uvloop.py, a request to a server of its own on the
+# loop of uvloop, outside the checkout.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "*"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build
+
+    runs-on: ubuntu-26.04-arm
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up mise
+        uses: jdx/mise-action@v5
+        with:
+          version: 2026.10.25 # datasource=github-releases depName=jdx/mise
+
+      # uv.lock has to match pyproject.toml.
+      - name: Check uv.lock
+        run: uv lock --check
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      # The packages Pyjo and Pyjo.Reactor are those of Pyjoyment: a wheel
+      # with their __init__.py would overwrite the files of Pyjoyment.
+      - name: Check wheel contents
+        run: |-
+          python -m zipfile -l dist/*.whl | tee wheel.txt
+          grep -q 'Pyjo/Reactor/Uvloop.py' wheel.txt
+          if grep -E 'Pyjo/(Reactor/)?__init__\.py' wheel.txt; then exit 1; fi
+
+      # The wheel in an environment of its own, outside the checkout, so that
+      # nothing comes from it, with the Pyjoyment of PyPI that it depends on.
+      # The first line of the example is the class of the reactor and the
+      # module of its loop, so that Pyjo.Reactor.Asyncio or a loop of asyncio
+      # in their place fails the step.
+      - name: Install and run the wheel
+        shell: bash
+        run: |-
+          uv venv --python "$(command -v python)" "$RUNNER_TEMP/venv"
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dist/*.whl
+          cp examples/loopback_uvloop.py "$RUNNER_TEMP/"
+          cd "$RUNNER_TEMP"
+          venv/bin/python -c 'import Pyjo.Reactor.Uvloop; print(Pyjo.Reactor.Uvloop.__version__)'
+          venv/bin/python loopback_uvloop.py | tee loopback.txt
+          diff - loopback.txt <<'EOF'
+          Pyjo_Reactor_Uvloop uvloop
+          200 Your Pyjo is working!
+          EOF
