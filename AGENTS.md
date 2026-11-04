@@ -58,6 +58,34 @@ linters it shares.
   the interpreter, from CPython 3.12 to 3.15. `_Loop` overrides the hook in
   Python, which the stack starts from then, as the hook of asyncio does, until
   MagicStack/uvloop#756, which fixes it in uvloop, is released.
+- After `stop`, uvloop ends the iteration of libuv, so a stop in a callback of
+  I/O goes on to the poll of the next iteration, which calls the readers and
+  the writers that are ready again; the loop of asyncio ends with the
+  callbacks of its select. An event of the reactor that stops it, or ends
+  `one_tick`, was followed by the same events, as a second `drain` of
+  `t/docs/IOLoop_Stream.py` and a third connection of `t/Pyjo/UserAgent.py`.
+  `stop` of `_Loop` schedules a callback, which uvloop runs before that poll,
+  and which halts the readers and the writers until the end of the run; a stop
+  in a ready callback, as a timer of no time, does not halt the poll of its
+  own iteration, which the loop of asyncio runs too, and which would starve
+  the I/O of `one_tick` otherwise. The halt relies on a handle that is ready
+  being ready in the next run still.
+- libuv sets a handle that it watches to the non-blocking mode and never
+  back, where the loop of asyncio leaves it. The mode belongs to the open file
+  description, which a terminal shares with the shell, and
+  `Pyjo.IOLoop.Stdio` reads and writes a terminal in the blocking mode, so
+  `_Loop` sets a handle that was blocking back after `add_reader` and
+  `add_writer`.
+- On an error of a handle, as a pipe whose reader has closed it or a socket
+  that the peer has reset, libuv of Linux stops watching it and calls its
+  reader and its writer once, and uvloop closes its watcher but keeps it in
+  its map of the handles, so the next `add_reader` or `add_writer` does
+  nothing; the loop of asyncio calls them for as long as the error lasts. A
+  writer of `Pyjo.IOLoop.Stdio` with nothing to write at that time never saw
+  `EPIPE` again, and the halt after `stop` lost the one call. `_Loop` checks a
+  handle for `POLLERR` with `poll` after its callback on Linux, and watches
+  it again; macOS reports no such error, and its `poll`, at 6 µs, would cost
+  more than an event.
 - `PYJO_ASYNCIO_SLOW_CALLBACK` sets the `slow_callback_duration` of a loop of
   its own, as for `Pyjo.Reactor.Asyncio`, which the loop of uvloop has too.
 - uvloop has wheels for CPython on Linux and macOS, not for PyPy or Windows, so
@@ -164,8 +192,9 @@ mise exec -- uv run --group docs --with-editable ../Pyjoyment sphinx-build -W --
 `t/Pyjo/Reactor_Poll.py` has them, with subtests of its own for the loop of
 uvloop: a loop of its own, a given loop, a loop that is running, of asyncio
 and of uvloop, a coroutine, `PYJO_ASYNCIO_SLOW_CALLBACK`, the child of a fork
-and its exit, the wakeup fd of the signals and the finalizer of an async
-generator in the debug mode.
+and its exit, the wakeup fd of the signals, the finalizer of an async
+generator in the debug mode, a stop in a callback of I/O, the blocking mode
+of a handle and the writer of a pipe whose reader has closed it.
 `t/docs/Reactor_Uvloop.py` runs the synopsis of the module, in both forms, as
 `t/docs` of Pyjoyment does.
 

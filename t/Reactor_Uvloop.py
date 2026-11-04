@@ -623,4 +623,62 @@ print(result)
     is_ok(result.returncode, 0, 'no crash')
     is_ok(result.stdout, '[[0, 1]]\n', 'right result')
 
+# Not in Mojolicious: after stop, the loop of uvloop polls once more, which would call a writer that stops it again in
+# the same run, where the loop of asyncio ends after the callbacks of its select
+with subtest('Stop in a callback of I/O'):
+    a, b = socket.socketpair()
+    with Pyjo.Reactor.Uvloop.new() as reactor:
+        calls = []
+
+        def stopping(reactor, writable):
+            calls.append(writable)
+            reactor.stop()
+
+        reactor.io(a, stopping).watch(a, False, True)
+        reactor.start()
+        is_deeply_ok(calls, [True], 'one event before the stop')
+        reactor.start()
+        is_deeply_ok(calls, [True, True], 'one event in the next run')
+        calls.clear()
+        reactor.recurring(0, lambda reactor: None)
+        for _ in range(3):
+            reactor.one_tick()
+        ok(len(calls) >= 1, 'no starving of I/O by a timer of no time in one_tick')
+        reactor.remove(a)
+    a.close()
+    b.close()
+
+# Not in Mojolicious: libuv sets a handle that it watches to the non-blocking mode, which a terminal shares with the shell
+with subtest('Blocking mode of a handle'):
+    read, write = os.pipe()
+    with Pyjo.Reactor.Uvloop.new() as reactor:
+        reactor.io(read, lambda reactor, writable: None).watch(read, True, False)
+        reactor.io(write, lambda reactor, writable: None).watch(write, False, True)
+        ok(os.get_blocking(read) and os.get_blocking(write), 'blocking while watched')
+        reactor.remove(read)
+        reactor.remove(write)
+        ok(os.get_blocking(read) and os.get_blocking(write), 'blocking after')
+    os.close(read)
+    os.close(write)
+
+# Not in Mojolicious: on an error of a handle, libuv of Linux calls its writer once and uvloop does not watch it anymore,
+# where the loop of asyncio calls it for as long as the error lasts
+with subtest('Writer of a pipe whose reader has closed it'):
+    read, write = os.pipe()
+    os.set_blocking(write, False)
+    with Pyjo.Reactor.Uvloop.new() as reactor:
+        calls = []
+
+        def writer(reactor, writable):
+            calls.append(writable)
+            if len(calls) == 1:
+                os.close(read)
+
+        reactor.io(write, writer).watch(write, False, True)
+        reactor.timer(0.1, lambda reactor: reactor.stop())
+        reactor.start()
+        ok(len(calls) > 2, 'writer called again after the error')
+        reactor.remove(write)
+    os.close(write)
+
 done_testing()
