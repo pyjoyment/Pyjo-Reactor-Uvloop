@@ -4,6 +4,7 @@
 [![License](https://img.shields.io/github/license/pyjoyment/Pyjo-Reactor-Uvloop.svg)](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop/blob/main/LICENSE)
 [![PyPI](https://img.shields.io/pypi/v/Pyjo-Reactor-Uvloop?logo=pypi&logoColor=white)](https://pypi.org/project/Pyjo-Reactor-Uvloop/)
 [![Tests](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop/actions/workflows/tests.yaml/badge.svg?branch=main)](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop/actions/workflows/tests.yaml)
+[![Trunk Check](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop/actions/workflows/trunk-check.yaml/badge.svg?branch=main)](https://github.com/pyjoyment/Pyjo-Reactor-Uvloop/actions/workflows/trunk-check.yaml)
 
 # Pyjo-Reactor-Uvloop
 
