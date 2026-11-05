@@ -254,5 +254,5 @@ for an approval and takes `main` and tags only. The trusted publisher of PyPI
 names `pypi.yaml` and that environment.
 
 ```sh
-gh attestation verify pyjo_reactor_uvloop-0.2.0.tar.gz -R pyjoyment/Pyjo-Reactor-Uvloop
+gh attestation verify pyjo_reactor_uvloop-0.1.0.tar.gz -R pyjoyment/Pyjo-Reactor-Uvloop
 ```
