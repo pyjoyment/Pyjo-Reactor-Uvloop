@@ -86,6 +86,25 @@ linters it shares.
   handle for `POLLERR` with `poll` after its callback on Linux, and watches
   it again; macOS reports no such error, and its `poll`, at 6 µs, would cost
   more than an event.
+- libuv counts a timer in whole milliseconds from `uv_now`, its clock rounded
+  down, and uvloop rounds the delay to them, so a timer, as `asyncio.sleep`,
+  was due up to a millisecond before its time by `time.monotonic`, where the
+  loop of asyncio is never early, and the tests of Pyjoyment that measure a
+  sleep with `time.monotonic`, as `t/Pyjo/Steps.py`, failed now and then.
+  `call_later` of `_Loop`, which `call_at` of uvloop calls too, rounds the
+  delay up to a millisecond and adds the one that the clock loses, as
+  MagicStack/uvloop#755 does in uvloop, until it is released; a delay of no
+  time stays a `call_soon` of uvloop.
+- `Pyjo.Reactor._finalize` defers the cleanup of a finalizer that runs below a
+  frame of a reactor or of its event loop, since pyjoyment/Pyjoyment#534,
+  which takes the file of the module of the class of the reactor,
+  `Pyjo/Reactor/Uvloop.py` with `_Loop`, wherever it is installed, and the
+  modules of `event_loop_modules`. The reactor inherits
+  `('asyncio', 'selectors')` and names no `uvloop`: the loop of uvloop is
+  compiled with Cython and makes no frames of Python, and below the code that
+  `uvloop.run` runs, the one place with frames of `uvloop/__init__.py`, is
+  `asyncio/runners.py`. A probe of `_finalize` over the suite of Pyjoyment on
+  the reactor found no frame of uvloop below any of its calls (#7).
 - `PYJO_ASYNCIO_SLOW_CALLBACK` sets the `slow_callback_duration` of a loop of
   its own, as for `Pyjo.Reactor.Asyncio`, which the loop of uvloop has too.
 - uvloop has wheels for CPython on Linux and macOS, not for PyPy or Windows, so
@@ -194,7 +213,8 @@ uvloop: a loop of its own, a given loop, a loop that is running, of asyncio
 and of uvloop, a coroutine, `PYJO_ASYNCIO_SLOW_CALLBACK`, the child of a fork
 and its exit, the wakeup fd of the signals, the finalizer of an async
 generator in the debug mode, a stop in a callback of I/O, the blocking mode
-of a handle and the writer of a pipe whose reader has closed it.
+of a handle, the writer of a pipe whose reader has closed it and a timer
+that is not due before its time.
 `t/docs/Reactor_Uvloop.py` runs the synopsis of the module, in both forms, as
 `t/docs` of Pyjoyment does.
 
