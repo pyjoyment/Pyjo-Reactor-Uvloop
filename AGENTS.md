@@ -48,7 +48,7 @@ linters it shares.
   the closed kqueue on macOS, while libuv aborts the child before its
   finalizers, as the one of `Pyjo.Server.Hot` that removes `hot.pid`. The
   reactor needs the `_fork` of pyjoyment/Pyjoyment#497, which keeps it out of
-  `_OWN`, so a release after 0.2.0.
+  `_OWN`, so Pyjoyment 0.3.0 at least.
 - In the debug mode of asyncio, which CI runs with `PYTHONDEVMODE=1`, a handle
   of uvloop takes the stack where it is made, with `sys._getframe` of Cython.
   The finalizer of an async generator that the end of another one frees, as
@@ -118,10 +118,10 @@ is not released yet would be its Git repository in `[tool.uv.sources]` of
 `pyproject.toml`, until its release, and not a path to the checkout next to
 this one: uv applies the sources of a dependency of Git, so whoever installs
 the reactor from Git would get a subdirectory of this repository that does not
-exist. That is the Pyjoyment of `main` now, for the `_fork` of
-pyjoyment/Pyjoyment#497: before a release of the reactor, the source goes and
-the lowest version of `dependencies` becomes the release of Pyjoyment that has
-it, as a wheel carries no sources of uv and would install Pyjoyment 0.2.0.
+exist. Before a release of the reactor, the source goes and the lowest version
+of `dependencies` becomes the release of Pyjoyment that has the change, as a
+wheel carries no sources of uv and would install the older release. That is
+Pyjoyment 0.3.0 now, the first with the `_fork` of pyjoyment/Pyjoyment#497.
 The tests lay the checkout next to this one over it with `--with-editable`,
 so that they test what is there:
 
