@@ -64,7 +64,9 @@ reactor moves to a new loop of its own of uvloop. The wakeup fd of the
 signals that a program sets with :func:`signal.set_wakeup_fd`, as the workers
 of :mod:`Pyjo.Server.Prefork` do, is written to on a signal while a loop of
 its own runs, as with the loop of :mod:`asyncio`, although uvloop sets one of
-its own.
+its own. A timer of a loop of its own, as :func:`asyncio.sleep`, is never due
+before its time, as with the loop of :mod:`asyncio`, although libuv counts it
+in whole milliseconds, so it may be up to two milliseconds late.
 
 uvloop runs on Linux and macOS, not on Windows, and on CPython, not on PyPy.
 The ``PYJO_ASYNCIO_SLOW_CALLBACK`` environment variable sets the
@@ -89,6 +91,7 @@ import Pyjo.Reactor.Asyncio
 
 import asyncio
 import importlib.metadata
+import math
 import os
 import select
 import signal
@@ -153,6 +156,17 @@ class _Loop(uvloop.Loop):  # pyright: ignore[reportUntypedBaseClass]
     def _halting(self) -> None:
         self._halt = None
         self._halted = True
+
+    # libuv counts a timer in whole milliseconds from its clock, which it rounds down, and uvloop rounds the delay, so
+    # that a timer, as asyncio.sleep, is due up to a millisecond before its time by time.monotonic, where the loop of
+    # asyncio is never early; the delay is rounded up, with the millisecond that the clock loses (MagicStack/uvloop#755).
+    # call_at of uvloop calls it too
+    def call_later(
+        self, delay: float, callback: Callable[..., Any], *args: Any, context: Any = None
+    ) -> asyncio.TimerHandle:
+        if 0 < delay < math.inf:
+            delay = (math.ceil(delay * 1000) + 1) / 1000
+        return super().call_later(delay, callback, *args, context=context)
 
     def __init__(self) -> None:
         super().__init__()

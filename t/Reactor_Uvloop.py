@@ -681,4 +681,54 @@ with subtest('Writer of a pipe whose reader has closed it'):
         reactor.remove(write)
     os.close(write)
 
+# Not in Mojolicious: libuv counts a timer in whole milliseconds of a clock that it rounds down, so that a timer of uvloop
+# is due up to a millisecond before its time, by the clock of time.monotonic, where the loop of asyncio is never early
+with subtest('Timer not due before its time'):
+    with Pyjo.Reactor.Uvloop.new() as reactor:
+        early = []
+
+        def timers(after, schedule, count=150):
+            # A start anywhere within a millisecond, which a start right after a timer is not
+            deadline = time.monotonic() + (count % 10) / 10000
+            while time.monotonic() < deadline:
+                pass
+            start = time.monotonic()
+
+            def due(*args):
+                if (elapsed := time.monotonic() - start) < after:
+                    early.append(elapsed)
+                if count > 1:
+                    timers(after, schedule, count - 1)
+                else:
+                    reactor.stop()
+
+            schedule(after, due)
+
+        timers(0.002, lambda after, due: reactor.timer(after, due))
+        reactor.start()
+        is_deeply_ok(early, [], 'timer of the reactor')
+        early.clear()
+        timers(0.002, lambda after, due: reactor.loop.call_later(after, due))
+        reactor.start()
+        is_deeply_ok(early, [], 'call_later')
+        early.clear()
+        timers(0.002, lambda after, due: reactor.loop.call_at(reactor.loop.time() + after, due))
+        reactor.start()
+        is_deeply_ok(early, [], 'call_at')
+        early.clear()
+
+        async def sleeps():
+            for i in range(150):
+                deadline = time.monotonic() + (i % 10) / 10000
+                while time.monotonic() < deadline:
+                    pass
+                start = time.monotonic()
+                await asyncio.sleep(0.002)
+                if (elapsed := time.monotonic() - start) < 0.002:
+                    early.append(elapsed)
+
+        reactor.run_coroutine(sleeps(), lambda value: reactor.stop(), lambda err: (early.append(err), reactor.stop()))
+        reactor.start()
+        is_deeply_ok(early, [], 'asyncio.sleep')
+
 done_testing()
