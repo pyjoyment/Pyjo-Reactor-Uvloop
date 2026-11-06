@@ -24,7 +24,7 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/pyjoyment/Pyjo-Reactor-Uvloop"
+Homepage = "https://pyjoyment.dev/"
 Documentation = "https://pyjoyment.readthedocs.io/projects/pyjo-reactor-uvloop/en/stable/"
 
 # Sphinx of docs/, which Read the Docs and the workflow Docs install with uv sync --group docs
