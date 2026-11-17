@@ -362,7 +362,7 @@ docs = ">=3.14"
 
 [package.metadata]
 requires-dist = [
-    { name = "pyjoyment", specifier = ">=0.3.0" },
+    { name = "pyjoyment", specifier = ">=0.4.0" },
     { name = "uvloop", specifier = ">=0.23.0" },
 ]
 
@@ -371,11 +371,11 @@ docs = [{ name = "sphinx", marker = "python_full_version >= '3.14'", specifier =
 
 [[package]]
 name = "pyjoyment"
-version = "0.3.0"
+version = "0.4.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/68/8b/a884c5adcda58db4b93ed48fd5dbd1124f51c43aecb346f1df4d6acaa818/pyjoyment-0.3.0.tar.gz", hash = "sha256:7cc7a6766f60c4b807b4d52643fc3b6a008dcb2378635158201b727a95cb23d8", size = 2086251, upload-time = "2026-11-05T16:11:40.5Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/25/9e25b9eecd0be4cb4cc9b80e907082dc66a74136e67ce004aa2cba94955b/pyjoyment-0.4.0.tar.gz", hash = "sha256:e3cfb47dab0bdb1507e925eba478695609a56c110205be17c32e027a40457a29", size = 2162685, upload-time = "2026-11-17T20:02:03.649Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/63/e91e7992501d15fe09bbeeb07ee9ed1002c7c9d7e64a28dd953f5891188a/pyjoyment-0.3.0-py3-none-any.whl", hash = "sha256:ed58806bdd0dc333c042afaf88eba3d30a7a7f6670d2375fc57555f800d14e60", size = 1266314, upload-time = "2026-11-05T16:11:38.891Z" },
+    { url = "https://files.pythonhosted.org/packages/64/fe/10aa5d95477022319b5226c641347ead49b20b9fd35b093932ceb0a78eb8/pyjoyment-0.4.0-py3-none-any.whl", hash = "sha256:451c819d888f920c56aa4ce39f1b17d83fb2bd79fb1f16a76f8878e77981237b", size = 1293412, upload-time = "2026-11-17T20:02:01.792Z" },
 ]
 
 [[package]]
