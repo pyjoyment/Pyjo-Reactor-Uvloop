@@ -11,7 +11,7 @@ license = "Artistic-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Piotr Roszatycki", email = "piotr.roszatycki@gmail.com" }]
 requires-python = ">=3.12"
-dependencies = ["Pyjoyment>=0.3.0", "uvloop>=0.23.0"]
+dependencies = ["Pyjoyment>=0.4.0", "uvloop>=0.23.0"]
 keywords = ["pyjoyment", "reactor", "uvloop", "asyncio"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
