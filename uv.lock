@@ -362,7 +362,7 @@ docs = ">=3.14"
 
 [package.metadata]
 requires-dist = [
-    { name = "pyjoyment", specifier = ">=0.3.0" },
+    { name = "pyjoyment", specifier = ">=0.5.0" },
     { name = "uvloop", specifier = ">=0.23.0" },
 ]
 
